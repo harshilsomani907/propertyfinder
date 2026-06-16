@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = "https://propertyfinder-production-0b58.up.railway.app";
 
 function App() {
   // Scraper State
   const [isScraping, setIsScraping] = useState(false);
   const [scrapePages, setScrapePages] = useState(3);
-  
+
   // Autopilot Settings State
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
   const [autopilotTime, setAutopilotTime] = useState("02:00");
@@ -61,7 +61,7 @@ function App() {
   // SSE stream connection for logs
   useEffect(() => {
     const eventSource = new EventSource(`${API_BASE}/api/logs/stream`);
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -450,8 +450,8 @@ function App() {
               <span className="dot dot-green"></span>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={clearLogWindow} 
+              <button
+                onClick={clearLogWindow}
                 style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 Clear Log
@@ -468,7 +468,7 @@ function App() {
                 if (log.includes("[ERROR]") || log.includes("❌")) type = "error";
                 else if (log.includes("✅") || log.includes("🎉") || log.includes("saved successfully")) type = "success";
                 else if (log.includes("🌐") || log.includes("ℹ️") || log.includes("🔗") || log.includes("🚀")) type = "info";
-                
+
                 return (
                   <div key={i} className={`log-line ${type}`}>
                     {log}
@@ -689,7 +689,7 @@ function App() {
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelectedProperty(null)}>✕</button>
             <h3 className="modal-title">{selectedProperty.title}</h3>
-            
+
             <div className="modal-grid">
               <div className="modal-field">
                 <div className="modal-field-label">Purpose & Type</div>
