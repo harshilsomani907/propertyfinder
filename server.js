@@ -298,6 +298,12 @@ function runScraper(pagesDepth) {
     "--new-json", tempJson
   ]);
 
+  // Handle spawn startup error to prevent Node crash and log failure
+  currentProcess.on("error", (err) => {
+    addLog(`[ERROR] Python scraper process failed to start: ${err.message}`);
+    console.error("❌ Python scraper process failed to start:", err);
+  });
+
   currentProcess.stdout.on("data", (data) => {
     const lines = data.toString().split("\n");
     lines.forEach(line => {
