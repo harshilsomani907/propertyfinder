@@ -75,12 +75,12 @@ function addLog(message) {
   const timestamp = new Date().toISOString();
   const logLine = `[${timestamp}] ${message}`;
   console.log(logLine);
-  
+
   logBuffer.push(logLine);
   if (logBuffer.length > logBufferLimit) {
     logBuffer.shift();
   }
-  
+
   // Append to log file
   fs.appendFile(LOGS_PATH, logLine + "\n", (err) => {
     if (err) console.error("⚠️ Failed to write to scraper.log", err);
@@ -96,7 +96,21 @@ function addLog(message) {
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log("✅ Successfully connected to MongoDB Atlas.");
+
+    console.log(
+      "Database:",
+      mongoose.connection.db.databaseName
+    );
+
+    const count = await Property.countDocuments();
+
+    console.log(
+      "Property Count:",
+      count
+    );
+
     const jsonPath = path.join(__dirname, "new_listings.json");
+
     if (fs.existsSync(jsonPath)) {
       addLog("ℹ️ Found pending new_listings.json on startup. Processing database import...");
       await processScrapedData();
@@ -168,14 +182,14 @@ async function processScrapedData() {
     addLog("📥 Reading new listings JSON output...");
     const fileData = fs.readFileSync(jsonPath, "utf-8");
     const listings = JSON.parse(fileData);
-    
+
     if (!Array.isArray(listings) || listings.length === 0) {
       addLog("ℹ️ No new listings were scraped. Database is up to date.");
       return;
     }
 
     addLog(`🔍 Processing ${listings.length} new listings for database import...`);
-    
+
     // Fetch existing referenceIds in DB
     const existingRefIds = new Set(
       (await Property.distinct("referenceId")).filter(id => id !== null && id !== undefined && id !== "")
@@ -183,10 +197,10 @@ async function processScrapedData() {
 
     const preparedRecords = [];
     let duplicates = 0;
-    
+
     for (const item of listings) {
       const referenceId = item["Property Survey No"] ? item["Property Survey No"].toString().trim() : undefined;
-      
+
       // Check database duplicates
       if (referenceId && existingRefIds.has(referenceId)) {
         duplicates++;
@@ -278,7 +292,7 @@ function runScraper(pagesDepth) {
 
   const scraperScript = path.join(__dirname, "scraper_pf.py");
   const tempJson = path.join(__dirname, "new_listings.json");
-  
+
   // Launch python script
   currentProcess = spawn("python", [
     scraperScript,
@@ -307,7 +321,7 @@ function runScraper(pagesDepth) {
     addLog(`🏁 Scraper process exited with code ${code}`);
     isScraping = false;
     currentProcess = null;
-    
+
     if (code === 0) {
       await processScrapedData();
       addLog("✅ Scraping job successfully finished and spreadsheet/database updated.");
@@ -338,7 +352,7 @@ function scheduleCron() {
 
   const minute = parseInt(timeParts[1]);
   const hour = parseInt(timeParts[0]);
-  
+
   if (isNaN(minute) || isNaN(hour)) {
     addLog("❌ Failed to parse hour/minute in Autopilot time config.");
     return;
@@ -384,7 +398,7 @@ app.post("/api/stop-scrape", (req, res) => {
   if (!isScraping || !currentProcess) {
     return res.status(400).json({ error: "No active scraper process to terminate." });
   }
-  
+
   addLog("⏹️ Terminating active scraper process by user request...");
   currentProcess.kill("SIGINT");
   res.json({ message: "Scraper termination requested." });
@@ -393,14 +407,14 @@ app.post("/api/stop-scrape", (req, res) => {
 // Toggle Autopilot settings
 app.post("/api/autopilot", (req, res) => {
   const { enabled, time, pages } = req.body;
-  
+
   if (enabled !== undefined) config.autopilot = !!enabled;
   if (time) config.runTime = time;
   if (pages) config.pages = parseInt(pages) || 3;
 
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   addLog(`⚙️ Autopilot settings updated: enabled=${config.autopilot}, time=${config.runTime}, pages=${config.pages}`);
-  
+
   scheduleCron();
   res.json({ message: "Autopilot settings saved successfully.", config });
 });
@@ -419,7 +433,7 @@ app.get("/api/logs/stream", (req, res) => {
 
   const client = { id: Date.now(), res };
   sseClients.push(client);
-  
+
   // Stream current memory log buffer immediately
   logBuffer.forEach(line => {
     res.write(`data: ${JSON.stringify({ log: line })}\n\n`);
@@ -436,7 +450,7 @@ app.get("/api/stats", async (req, res) => {
     const totalCount = await Property.countDocuments();
     const rentCount = await Property.countDocuments({ purpose: "rent" });
     const saleCount = await Property.countDocuments({ purpose: "sale" });
-    
+
     // Scraped today logic
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -446,7 +460,7 @@ app.get("/api/stats", async (req, res) => {
 
     // Extract unique cities and count them
     const cities = await Property.distinct("city");
-    
+
     // Last scrape completion details from scraper.log file modification time
     let lastUpdated = "N/A";
     if (fs.existsSync(EXCEL_PATH)) {
