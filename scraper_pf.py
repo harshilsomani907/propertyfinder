@@ -38,16 +38,26 @@ except ImportError:
 
 
 def open_browser():
-    print("🌐 Launching headed Chrome using undetected-chromedriver...")
+    is_headless = os.name != 'nt'
+    if is_headless:
+        print("🌐 Launching Chrome in headless mode using undetected-chromedriver...")
+    else:
+        print("🌐 Launching headed Chrome using undetected-chromedriver...")
+
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
     
-    driver = uc.Chrome(options=options)
+    if is_headless:
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+    
+    driver = uc.Chrome(options=options, headless=is_headless)
     try:
-        driver.maximize_window()
+        if not is_headless:
+            driver.maximize_window()
     except Exception:
         pass
     return driver

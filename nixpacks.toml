@@ -1,0 +1,5 @@
+# nixpacks.toml
+providers = ["node", "python"]
+
+[phases.setup]
+nixPkgs = ["...", "chromium", "chromedriver"]

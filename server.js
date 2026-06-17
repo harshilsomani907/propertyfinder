@@ -96,18 +96,14 @@ function addLog(message) {
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log("✅ Successfully connected to MongoDB Atlas.");
+    console.log("Database:", mongoose.connection.db.databaseName);
+    console.log("Collection:", Property.collection.collectionName);
 
-    console.log(
-      "Database:",
-      mongoose.connection.db.databaseName
-    );
+    const count = await Property.countDocuments({});
+    console.log("Property Count:", count);
 
-    const count = await Property.countDocuments();
-
-    console.log(
-      "Property Count:",
-      count
-    );
+    const sample = await Property.findOne({});
+    console.log("Sample Property:", sample ? JSON.stringify(sample) : "None found");
 
     const jsonPath = path.join(__dirname, "new_listings.json");
 
@@ -293,8 +289,9 @@ function runScraper(pagesDepth) {
   const scraperScript = path.join(__dirname, "scraper_pf.py");
   const tempJson = path.join(__dirname, "new_listings.json");
 
+  const pythonCmd = process.platform === "win32" ? "python" : "python3";
   // Launch python script
-  currentProcess = spawn("python", [
+  currentProcess = spawn(pythonCmd, [
     scraperScript,
     "--pages", targetPages.toString(),
     "--output", EXCEL_PATH,
@@ -486,14 +483,15 @@ app.get("/api/properties", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || "";
-    const purpose = req.query.purpose || "";
-    const city = req.query.city || "";
-    const type = req.query.type || "";
+    const search = (req.query.search || "").toString().trim();
+    const purpose = (req.query.purpose || "").toString().trim();
+    const city = (req.query.city || "").toString().trim();
+    const type = (req.query.type || "").toString().trim();
 
     const query = {};
 
-    if (search) {
+    // Ignore placeholder strings like "null" / "undefined" that might be passed from React
+    if (search && search !== "undefined" && search !== "null") {
       query.$or = [
         { title: { $regex: search, $options: "i" } },
         { location: { $regex: search, $options: "i" } },
@@ -501,23 +499,35 @@ app.get("/api/properties", async (req, res) => {
       ];
     }
 
-    if (purpose) {
-      query.purpose = purpose.toLowerCase();
+    if (purpose && purpose !== "undefined" && purpose !== "null" && purpose.toLowerCase() !== "all") {
+      // Query case-insensitively using regex to support "rent"/"Rent" and "sale"/"Sale"
+      query.purpose = { $regex: `^${purpose}$`, $options: "i" };
     }
 
-    if (city) {
+    if (city && city !== "undefined" && city !== "null" && city.toLowerCase() !== "all") {
       query.city = { $regex: `^${city}$`, $options: "i" };
     }
 
-    if (type) {
+    if (type && type !== "undefined" && type !== "null" && type.toLowerCase() !== "all") {
       query.property_type = { $regex: type, $options: "i" };
     }
+
+    // Debugging logs to Railway / server console
+    console.log("----------------------------------------");
+    console.log("API Properties Request Query Params:", req.query);
+    console.log("Mongoose Collection:", Property.collection.collectionName);
+    console.log("Database Name:", mongoose.connection.db.databaseName);
+    console.log("Constructed MongoDB Query:", JSON.stringify(query));
 
     const total = await Property.countDocuments(query);
     const properties = await Property.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
+
+    console.log("Database Total Matching Documents:", total);
+    console.log("Returning properties count in page:", properties.length);
+    console.log("----------------------------------------");
 
     res.json({
       properties,
@@ -526,6 +536,7 @@ app.get("/api/properties", async (req, res) => {
       currentPage: page
     });
   } catch (err) {
+    console.error("❌ Error in GET /api/properties:", err);
     res.status(500).json({ error: err.message });
   }
 });
