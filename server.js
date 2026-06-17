@@ -289,49 +289,58 @@ function runScraper(pagesDepth) {
   const scraperScript = path.join(__dirname, "scraper_pf.py");
   const tempJson = path.join(__dirname, "new_listings.json");
 
-  const pythonCmd = process.platform === "win32" ? "python" : "python3";
-  // Launch python script
-  currentProcess = spawn(pythonCmd, [
-    scraperScript,
-    "--pages", targetPages.toString(),
-    "--output", EXCEL_PATH,
-    "--new-json", tempJson
-  ]);
+  try {
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    // Launch python script
+    currentProcess = spawn(pythonCmd, [
+      scraperScript,
+      "--pages", targetPages.toString(),
+      "--output", EXCEL_PATH,
+      "--new-json", tempJson
+    ]);
 
-  // Handle spawn startup error to prevent Node crash and log failure
-  currentProcess.on("error", (err) => {
-    addLog(`[ERROR] Python scraper process failed to start: ${err.message}`);
-    console.error("❌ Python scraper process failed to start:", err);
-  });
-
-  currentProcess.stdout.on("data", (data) => {
-    const lines = data.toString().split("\n");
-    lines.forEach(line => {
-      const cleanLine = line.trim();
-      if (cleanLine) addLog(cleanLine);
+    // Handle spawn startup error to prevent Node crash and log failure
+    currentProcess.on("error", (err) => {
+      addLog(`[ERROR] Python scraper process failed to start: ${err.message}`);
+      console.error("❌ Python scraper process failed to start:", err);
+      isScraping = false;
+      currentProcess = null;
     });
-  });
 
-  currentProcess.stderr.on("data", (data) => {
-    const lines = data.toString().split("\n");
-    lines.forEach(line => {
-      const cleanLine = line.trim();
-      if (cleanLine) addLog(`[ERROR] ${cleanLine}`);
+    currentProcess.stdout.on("data", (data) => {
+      const lines = data.toString().split("\n");
+      lines.forEach(line => {
+        const cleanLine = line.trim();
+        if (cleanLine) addLog(cleanLine);
+      });
     });
-  });
 
-  currentProcess.on("close", async (code) => {
-    addLog(`🏁 Scraper process exited with code ${code}`);
+    currentProcess.stderr.on("data", (data) => {
+      const lines = data.toString().split("\n");
+      lines.forEach(line => {
+        const cleanLine = line.trim();
+        if (cleanLine) addLog(`[ERROR] ${cleanLine}`);
+      });
+    });
+
+    currentProcess.on("close", async (code) => {
+      addLog(`🏁 Scraper process exited with code ${code}`);
+      isScraping = false;
+      currentProcess = null;
+
+      if (code === 0) {
+        await processScrapedData();
+        addLog("✅ Scraping job successfully finished and spreadsheet/database updated.");
+      } else {
+        addLog("❌ Scraper execution failed or was aborted.");
+      }
+    });
+  } catch (err) {
+    addLog(`[ERROR] Synchronous error spawning scraper: ${err.message}`);
+    console.error("❌ Synchronous error spawning scraper:", err);
     isScraping = false;
     currentProcess = null;
-
-    if (code === 0) {
-      await processScrapedData();
-      addLog("✅ Scraping job successfully finished and spreadsheet/database updated.");
-    } else {
-      addLog("❌ Scraper execution failed or was aborted.");
-    }
-  });
+  }
 }
 
 // Autopilot Scheduler Configurator
@@ -545,6 +554,19 @@ app.get("/api/properties", async (req, res) => {
     console.error("❌ Error in GET /api/properties:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Diagnostic endpoint to check installed binaries and environment on Railway
+app.get("/api/test-env", (req, res) => {
+  const { exec } = require("child_process");
+  exec("which python; which python3; which google-chrome; which chromium; which chromedriver; google-chrome --version; chromium --version; python --version; python3 --version", (err, stdout, stderr) => {
+    res.json({
+      err: err ? err.message : null,
+      stdout,
+      stderr,
+      platform: process.platform
+    });
+  });
 });
 
 // Download compiled Excel spreadsheet
