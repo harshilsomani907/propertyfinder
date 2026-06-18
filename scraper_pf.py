@@ -13,6 +13,9 @@ import time
 import json
 import argparse
 import requests
+import re
+import subprocess
+import shutil
 from io import BytesIO
 
 if sys.stdout.encoding != 'utf-8':
@@ -37,6 +40,76 @@ except ImportError:
     HAS_PILLOW = False
 
 
+def get_chrome_version():
+    """Detects the installed Chrome/Chromium version on Windows, Linux, or macOS."""
+    if os.name == 'nt':
+        # Windows Registry Checks
+        try:
+            cmd = r'reg query "HKEY_CURRENT_USER\Software\Google\Chrome\BLBeacon" /v version'
+            output = subprocess.check_output(cmd, shell=True).decode()
+            version = re.search(r'version\s+REG_SZ\s+([\d\.]+)', output)
+            if version:
+                return version.group(1)
+        except Exception:
+            pass
+        
+        try:
+            cmd = r'reg query "HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Google Chrome" /v version'
+            output = subprocess.check_output(cmd, shell=True).decode()
+            version = re.search(r'version\s+REG_SZ\s+([\d\.]+)', output)
+            if version:
+                return version.group(1)
+        except Exception:
+            pass
+
+        # Check common executable paths version info on Windows
+        paths = [
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                try:
+                    cmd = f'powershell -command "(Get-Item \'{path}\').VersionInfo.ProductVersion"'
+                    output = subprocess.check_output(cmd, shell=True).decode().strip()
+                    if output:
+                        return output
+                except Exception:
+                    pass
+    else:
+        # Linux / macOS Checks
+        for cmd in ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']:
+            try:
+                output = subprocess.check_output([cmd, '--version']).decode()
+                version = re.search(r'([\d\.]+)', output)
+                if version:
+                    return version.group(1)
+            except Exception:
+                continue
+    return None
+
+
+def find_chrome_executable():
+    """Locates the path of the Chrome or Chromium binary."""
+    if os.name == 'nt':
+        paths = [
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+    else:
+        # Check standard binary command names on Linux / macOS
+        for cmd in ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']:
+            path = shutil.which(cmd)
+            if path:
+                return path
+    return None
+
+
 def open_browser():
     is_headless = os.name != 'nt'
     if is_headless:
@@ -53,8 +126,35 @@ def open_browser():
     if is_headless:
         options.add_argument("--headless")
         options.add_argument("--disable-gpu")
+
+    chrome_path = find_chrome_executable()
+    ver = get_chrome_version()
+    version_main = None
     
-    driver = uc.Chrome(options=options, headless=is_headless)
+    if ver:
+        try:
+            version_main = int(ver.split('.')[0])
+            print(f"ℹ️ Detected Chrome version: {ver}. Forcing version_main={version_main}")
+        except Exception as e:
+            print(f"⚠️ Error parsing Chrome version '{ver}': {e}")
+
+    if chrome_path:
+        print(f"ℹ️ Using Chrome executable path: {chrome_path}")
+    
+    # Try launching with detected path and version
+    try:
+        kwargs = {"options": options, "headless": is_headless}
+        if chrome_path:
+            kwargs["browser_executable_path"] = chrome_path
+        if version_main:
+            kwargs["version_main"] = version_main
+            
+        driver = uc.Chrome(**kwargs)
+    except Exception as err:
+        print(f"⚠️ Failed to launch Chrome with custom parameters: {err}")
+        print("🔄 Retrying default launch as a fallback...")
+        driver = uc.Chrome(options=options, headless=is_headless)
+        
     try:
         if not is_headless:
             driver.maximize_window()
