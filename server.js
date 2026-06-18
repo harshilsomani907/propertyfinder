@@ -311,7 +311,9 @@ function runScraper(pagesDepth) {
     if (process.platform !== "win32") {
       cmd = "xvfb-run";
       spawnArgs = [
-        "--server-args=-screen 0 1920x1080x24",
+        "-a",
+        "--server-args",
+        "-screen 0 1920x1080x24",
         pythonCmd,
         scraperScript,
         "--pages", targetPages.toString(),
