@@ -110,6 +110,39 @@ def find_chrome_executable():
     return None
 
 
+def find_chromedriver_executable():
+    """Locates the system-installed chromedriver binary (critical for Nix environments)."""
+    if os.name == 'nt':
+        return None  # Let undetected-chromedriver handle it on Windows
+    
+    # Check PATH first
+    path = shutil.which('chromedriver')
+    if path:
+        return path
+    
+    # Check common Nix / system locations
+    common_paths = [
+        '/usr/bin/chromedriver',
+        '/usr/local/bin/chromedriver',
+    ]
+    for p in common_paths:
+        if os.path.exists(p) and os.access(p, os.X_OK):
+            return p
+    
+    # Search in /nix/store for chromedriver
+    nix_store = '/nix/store'
+    if os.path.isdir(nix_store):
+        try:
+            for entry in os.listdir(nix_store):
+                candidate = os.path.join(nix_store, entry, 'bin', 'chromedriver')
+                if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                    return candidate
+        except Exception:
+            pass
+    
+    return None
+
+
 def _make_chrome_options(is_headless):
     """Creates a fresh ChromeOptions instance (cannot be reused across uc.Chrome calls)."""
     options = uc.ChromeOptions()
@@ -121,6 +154,8 @@ def _make_chrome_options(is_headless):
         options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--single-process")
+        options.add_argument("--disable-extensions")
     return options
 
 
@@ -132,6 +167,7 @@ def open_browser():
         print("🌐 Launching headed Chrome using undetected-chromedriver...")
 
     chrome_path = find_chrome_executable()
+    chromedriver_path = find_chromedriver_executable()
     ver = get_chrome_version()
     version_main = None
     
@@ -143,31 +179,33 @@ def open_browser():
             print(f"⚠️ Error parsing Chrome version '{ver}': {e}")
 
     if chrome_path:
-        print(f"ℹ️ Using Chrome executable path: {chrome_path}")
+        print(f"ℹ️ Using Chrome executable: {chrome_path}")
+    if chromedriver_path:
+        print(f"ℹ️ Using system chromedriver: {chromedriver_path}")
     
-    # Attempt 1: launch with detected path and version
+    # Build kwargs with all detected paths
+    options = _make_chrome_options(is_headless)
+    kwargs = {"options": options, "headless": is_headless}
+    if chrome_path:
+        kwargs["browser_executable_path"] = chrome_path
+    if chromedriver_path:
+        kwargs["driver_executable_path"] = chromedriver_path
+    if version_main:
+        kwargs["version_main"] = version_main
+    
     try:
-        options = _make_chrome_options(is_headless)
-        kwargs = {"options": options, "headless": is_headless}
-        if chrome_path:
-            kwargs["browser_executable_path"] = chrome_path
-        if version_main:
-            kwargs["version_main"] = version_main
-            
         driver = uc.Chrome(**kwargs)
     except Exception as err:
-        print(f"⚠️ Attempt 1 failed: {err}")
-        print("🔄 Retrying with fresh options (no custom path/version)...")
-        # Attempt 2: fresh options, no custom path/version
-        try:
-            options2 = _make_chrome_options(is_headless)
-            driver = uc.Chrome(options=options2, headless=is_headless)
-        except Exception as err2:
-            print(f"⚠️ Attempt 2 failed: {err2}")
-            print("🔄 Final attempt with minimal options...")
-            # Attempt 3: absolute minimal
-            options3 = _make_chrome_options(is_headless)
-            driver = uc.Chrome(options=options3)
+        print(f"⚠️ Launch failed: {err}")
+        print("🔄 Retrying with fresh options and no custom driver path...")
+        options2 = _make_chrome_options(is_headless)
+        kwargs2 = {"options": options2, "headless": is_headless}
+        if chrome_path:
+            kwargs2["browser_executable_path"] = chrome_path
+        if version_main:
+            kwargs2["version_main"] = version_main
+        # Don't pass driver_executable_path - let it download its own
+        driver = uc.Chrome(**kwargs2)
         
     try:
         if not is_headless:
