@@ -180,9 +180,25 @@ def open_browser():
 
     if chrome_path:
         print(f"ℹ️ Using Chrome executable: {chrome_path}")
+    else:
+        print("⚠️ No Chrome executable found by find_chrome_executable()")
+        
     if chromedriver_path:
         print(f"ℹ️ Using system chromedriver: {chromedriver_path}")
-    
+    else:
+        print("⚠️ No system chromedriver found by find_chromedriver_executable()")
+        print("⚠️ Nixpacks configuration might be missing the 'chromedriver' package, or it's not in PATH.")
+
+    # CRITICAL FIX FOR NIXPACKS:
+    # undetected-chromedriver will try to download a generic Ubuntu binary if it thinks
+    # the system one is outdated, which causes exit code 127 on NixOS/Railway.
+    # We monkeypatch the patcher to prevent downloading if we already have a system binary.
+    if chromedriver_path and is_headless:
+        print("🛡️ Monkeypatching undetected_chromedriver to prevent generic binary download...")
+        import undetected_chromedriver.patcher
+        undetected_chromedriver.patcher.Patcher.fetch_package = lambda *args, **kwargs: print("   -> Blocked fetch_package()")
+        undetected_chromedriver.patcher.Patcher.unzip_package = lambda *args, **kwargs: print("   -> Blocked unzip_package()")
+
     # Build kwargs with all detected paths
     options = _make_chrome_options(is_headless)
     kwargs = {"options": options, "headless": is_headless}
@@ -194,6 +210,7 @@ def open_browser():
         kwargs["version_main"] = version_main
     
     try:
+        print(f"🚀 Attempt 1: Launching uc.Chrome with kwargs: {kwargs}")
         driver = uc.Chrome(**kwargs)
     except Exception as err:
         print(f"⚠️ Launch failed: {err}")
@@ -205,6 +222,7 @@ def open_browser():
         if version_main:
             kwargs2["version_main"] = version_main
         # Don't pass driver_executable_path - let it download its own
+        print(f"🚀 Attempt 2: Launching uc.Chrome with kwargs: {kwargs2}")
         driver = uc.Chrome(**kwargs2)
         
     try:
