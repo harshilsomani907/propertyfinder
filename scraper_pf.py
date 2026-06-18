@@ -154,6 +154,7 @@ def _make_chrome_options(is_headless):
     if is_headless:
         options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
         options.add_argument("--disable-extensions")
     return options
 
@@ -211,7 +212,7 @@ def open_browser():
 
     # Build kwargs with all detected paths
     options = _make_chrome_options(is_headless)
-    kwargs = {"options": options, "headless": is_headless}
+    kwargs = {"options": options}
     if chrome_path:
         kwargs["browser_executable_path"] = chrome_path
     if chromedriver_path:
@@ -226,7 +227,7 @@ def open_browser():
         print(f"⚠️ Launch failed: {err}")
         print("🔄 Retrying with fresh options and no custom driver path...")
         options2 = _make_chrome_options(is_headless)
-        kwargs2 = {"options": options2, "headless": is_headless}
+        kwargs2 = {"options": options2}
         if chrome_path:
             kwargs2["browser_executable_path"] = chrome_path
         if version_main:
