@@ -110,22 +110,26 @@ def find_chrome_executable():
     return None
 
 
+def _make_chrome_options(is_headless):
+    """Creates a fresh ChromeOptions instance (cannot be reused across uc.Chrome calls)."""
+    options = uc.ChromeOptions()
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    if is_headless:
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
+    return options
+
+
 def open_browser():
     is_headless = os.name != 'nt'
     if is_headless:
         print("🌐 Launching Chrome in headless mode using undetected-chromedriver...")
     else:
         print("🌐 Launching headed Chrome using undetected-chromedriver...")
-
-    options = uc.ChromeOptions()
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    
-    if is_headless:
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
 
     chrome_path = find_chrome_executable()
     ver = get_chrome_version()
@@ -141,8 +145,9 @@ def open_browser():
     if chrome_path:
         print(f"ℹ️ Using Chrome executable path: {chrome_path}")
     
-    # Try launching with detected path and version
+    # Attempt 1: launch with detected path and version
     try:
+        options = _make_chrome_options(is_headless)
         kwargs = {"options": options, "headless": is_headless}
         if chrome_path:
             kwargs["browser_executable_path"] = chrome_path
@@ -151,9 +156,18 @@ def open_browser():
             
         driver = uc.Chrome(**kwargs)
     except Exception as err:
-        print(f"⚠️ Failed to launch Chrome with custom parameters: {err}")
-        print("🔄 Retrying default launch as a fallback...")
-        driver = uc.Chrome(options=options, headless=is_headless)
+        print(f"⚠️ Attempt 1 failed: {err}")
+        print("🔄 Retrying with fresh options (no custom path/version)...")
+        # Attempt 2: fresh options, no custom path/version
+        try:
+            options2 = _make_chrome_options(is_headless)
+            driver = uc.Chrome(options=options2, headless=is_headless)
+        except Exception as err2:
+            print(f"⚠️ Attempt 2 failed: {err2}")
+            print("🔄 Final attempt with minimal options...")
+            # Attempt 3: absolute minimal
+            options3 = _make_chrome_options(is_headless)
+            driver = uc.Chrome(options=options3)
         
     try:
         if not is_headless:
