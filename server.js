@@ -6,6 +6,15 @@
  *  - Daily Autopilot scheduler using node-cron
  *  - REST APIs for metrics, property listings, and Excel file download
  */
+// Polyfill globalThis.crypto for MongoDB driver compatibility on older Node.js versions
+if (!globalThis.crypto) {
+  const nodeCrypto = require("crypto");
+  globalThis.crypto = nodeCrypto.webcrypto || {
+    getRandomValues: function (buffer) {
+      return nodeCrypto.randomFillSync(buffer);
+    }
+  };
+}
 
 const express = require("express");
 const cors = require("cors");
