@@ -184,20 +184,31 @@ def open_browser():
         print("⚠️ No Chrome executable found by find_chrome_executable()")
         
     if chromedriver_path:
-        print(f"ℹ️ Using system chromedriver: {chromedriver_path}")
+        # CRITICAL FIX FOR NIXPACKS:
+        # undetected-chromedriver patches the binary in-place. The Nix store is read-only!
+        # If we pass the Nix store path directly, it crashes with PermissionError.
+        # So we must copy it to a writable location first.
+        if is_headless and ('nix' in chromedriver_path.lower() or not os.access(chromedriver_path, os.W_OK)):
+            writable_path = "/tmp/custom_nix_chromedriver"
+            try:
+                shutil.copy2(chromedriver_path, writable_path)
+                os.chmod(writable_path, 0o777)
+                print(f"ℹ️ Copied read-only system chromedriver to writable path: {writable_path}")
+                chromedriver_path = writable_path
+            except Exception as e:
+                print(f"⚠️ Failed to copy chromedriver to writable path: {e}")
+        else:
+            print(f"ℹ️ Using system chromedriver: {chromedriver_path}")
     else:
         print("⚠️ No system chromedriver found by find_chromedriver_executable()")
         print("⚠️ Nixpacks configuration might be missing the 'chromedriver' package, or it's not in PATH.")
 
-    # CRITICAL FIX FOR NIXPACKS:
-    # undetected-chromedriver will try to download a generic Ubuntu binary if it thinks
-    # the system one is outdated, which causes exit code 127 on NixOS/Railway.
-    # We monkeypatch the patcher to prevent downloading if we already have a system binary.
+    # Prevent undetected-chromedriver from downloading generic Ubuntu binaries which crash with 127
     if chromedriver_path and is_headless:
-        print("🛡️ Monkeypatching undetected_chromedriver to prevent generic binary download...")
+        print("🛡️ Monkeypatching undetected_chromedriver to bypass download checks...")
         import undetected_chromedriver.patcher
-        undetected_chromedriver.patcher.Patcher.fetch_package = lambda *args, **kwargs: print("   -> Blocked fetch_package()")
-        undetected_chromedriver.patcher.Patcher.unzip_package = lambda *args, **kwargs: print("   -> Blocked unzip_package()")
+        # If is_old returns False, it skips fetch_package and unzip_package entirely
+        undetected_chromedriver.patcher.Patcher.is_old = lambda self: False
 
     # Build kwargs with all detected paths
     options = _make_chrome_options(is_headless)
