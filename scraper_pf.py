@@ -650,9 +650,9 @@ def main():
             print(f"\n📄 Scanning search page {page} of {args.pages}...")
             
             if page == 1:
-                url = "https://www.propertyfinder.ae/en/rent/dubai/properties-for-rent.html"
+                url = "https://www.propertyfinder.ae/en/rent/dubai/properties-for-rent.html?ob=nd"
             else:
-                url = f"https://www.propertyfinder.ae/en/rent/dubai/properties-for-rent.html?page={page}"
+                url = f"https://www.propertyfinder.ae/en/rent/dubai/properties-for-rent.html?page={page}&ob=nd"
                 
             driver.get(url)
             time.sleep(5)
