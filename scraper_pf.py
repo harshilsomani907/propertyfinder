@@ -160,11 +160,14 @@ def _make_chrome_options(is_headless):
 
 
 def open_browser():
-    is_headless = os.name != 'nt'
+    is_headless = os.name != 'nt' and "DISPLAY" not in os.environ
     if is_headless:
         print("🌐 Launching Chrome in headless mode using undetected-chromedriver...")
     else:
-        print("🌐 Launching headed Chrome using undetected-chromedriver...")
+        if os.name != 'nt':
+            print(f"🖥️ Xvfb virtual display detected (DISPLAY={os.environ.get('DISPLAY')}). Launching headed Chrome inside container!")
+        else:
+            print("🌐 Launching headed Chrome using undetected-chromedriver...")
 
     chrome_path = find_chrome_executable()
     chromedriver_path = find_chromedriver_executable()

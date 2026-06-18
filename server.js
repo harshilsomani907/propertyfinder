@@ -300,13 +300,28 @@ function runScraper(pagesDepth) {
 
   try {
     const pythonCmd = process.platform === "win32" ? "python" : "python3";
-    // Launch python script
-    currentProcess = spawn(pythonCmd, [
+    let cmd = pythonCmd;
+    let spawnArgs = [
       scraperScript,
       "--pages", targetPages.toString(),
       "--output", EXCEL_PATH,
       "--new-json", tempJson
-    ]);
+    ];
+
+    if (process.platform !== "win32") {
+      cmd = "xvfb-run";
+      spawnArgs = [
+        "--server-args=-screen 0 1920x1080x24",
+        pythonCmd,
+        scraperScript,
+        "--pages", targetPages.toString(),
+        "--output", EXCEL_PATH,
+        "--new-json", tempJson
+      ];
+    }
+
+    // Launch python script
+    currentProcess = spawn(cmd, spawnArgs);
 
     // Handle spawn startup error to prevent Node crash and log failure
     currentProcess.on("error", (err) => {
