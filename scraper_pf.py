@@ -147,14 +147,13 @@ def _make_chrome_options(is_headless):
     """Creates a fresh ChromeOptions instance (cannot be reused across uc.Chrome calls)."""
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
+    options.add_argument("--disable-setuid-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
     if is_headless:
         options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--single-process")
         options.add_argument("--disable-extensions")
     return options
 
