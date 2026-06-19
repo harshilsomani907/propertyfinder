@@ -151,10 +151,11 @@ def _make_chrome_options(is_headless):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    if is_headless:
-        options.add_argument("--headless=new")
+    if is_headless or os.name != 'nt':
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-software-rasterizer")
+    if is_headless:
+        options.add_argument("--headless=new")
         options.add_argument("--disable-extensions")
     return options
 

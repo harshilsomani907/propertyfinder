@@ -302,6 +302,7 @@ function runScraper(pagesDepth) {
     const pythonCmd = process.platform === "win32" ? "python" : "python3";
     let cmd = pythonCmd;
     let spawnArgs = [
+      "-u",
       scraperScript,
       "--pages", targetPages.toString(),
       "--output", EXCEL_PATH,
@@ -315,6 +316,7 @@ function runScraper(pagesDepth) {
         "--server-args",
         "-screen 0 1920x1080x24",
         pythonCmd,
+        "-u",
         scraperScript,
         "--pages", targetPages.toString(),
         "--output", EXCEL_PATH,
