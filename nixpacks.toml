@@ -2,4 +2,4 @@
 providers = ["node", "python"]
 
 [phases.setup]
-nixPkgs = ["...", "chromium", "chromedriver", "xvfb", "xvfb-run"]
+nixPkgs = ["...", "chromium", "chromedriver", "xorg.xvfb", "xvfb-run"]
