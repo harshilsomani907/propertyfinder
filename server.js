@@ -585,7 +585,8 @@ app.get("/api/properties", async (req, res) => {
 // Diagnostic endpoint to check installed binaries and environment on Railway
 app.get("/api/test-env", (req, res) => {
   const { exec } = require("child_process");
-  exec("which python; which python3; which google-chrome; which chromium; which chromedriver; google-chrome --version; chromium --version; python --version; python3 --version", (err, stdout, stderr) => {
+  const cmd = "which python python3 google-chrome chromium chromedriver xvfb-run Xvfb; echo '=== CLI versions ==='; chromium --version || true; python3 --version || true; xvfb-run --version || true; echo '=== Environment ==='; env";
+  exec(cmd, (err, stdout, stderr) => {
     res.json({
       err: err ? err.message : null,
       stdout,
