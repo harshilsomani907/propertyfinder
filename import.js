@@ -212,8 +212,17 @@ async function runImport() {
         const verified = row.Verified === "Yes" || row.Verified === true;
         
         // Map other details safely
-        const purpose = row.Purpose ? row.Purpose.toLowerCase().trim() : "rent";
-        const furnishing = row.Furnishing ? row.Furnishing.toLowerCase().trim() : "";
+        // Normalize purpose and furnishing to match database enums
+        const rawPurpose = row.Purpose ? row.Purpose.toLowerCase().trim() : "rent";
+        const purpose = rawPurpose === "sale" ? "sell" : rawPurpose;
+        
+        let furnishing = row.Furnishing ? row.Furnishing.toLowerCase().trim() : "";
+        if (furnishing === "partly" || furnishing === "partially") {
+          furnishing = "partially furnished";
+        } else if (furnishing === "semi") {
+          furnishing = "semi furnished";
+        }
+        
         const listedOn = row["Listed On"] ? new Date(row["Listed On"]) : undefined;
         const amenitiesList = parseAmenities(row.Amenities);
 

@@ -225,8 +225,18 @@ async function processScrapedData() {
       const baths = parseBaths(item.Baths);
       const parkingSpaces = item["Parking Spaces"] ? parseInt(item["Parking Spaces"], 10) : undefined;
       const verified = item.Verified === "Yes" || item.Verified === true;
-      const purpose = item.Purpose ? item.Purpose.toLowerCase().trim() : "rent";
-      const furnishing = item.Furnishing ? item.Furnishing.toLowerCase().trim() : "";
+      
+      // Normalize purpose and furnishing to match database enums
+      const rawPurpose = item.Purpose ? item.Purpose.toLowerCase().trim() : "rent";
+      const purpose = rawPurpose === "sale" ? "sell" : rawPurpose;
+      
+      let furnishing = item.Furnishing ? item.Furnishing.toLowerCase().trim() : "";
+      if (furnishing === "partly" || furnishing === "partially") {
+        furnishing = "partially furnished";
+      } else if (furnishing === "semi") {
+        furnishing = "semi furnished";
+      }
+      
       const listedOn = item["Listed On"] ? new Date(item["Listed On"]) : undefined;
       const amenitiesList = parseAmenities(item.Amenities);
 

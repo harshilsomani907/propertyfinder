@@ -47,14 +47,14 @@ const propertySchema = new mongoose.Schema(
 		// Property characteristics
 		purpose: {
 			type: String,
-			enum: ["sell", "rent", "buy"],
+			enum: ["sell", "rent", "buy", "sale"],
 			required: true,
 			index: true,
 		},
 		property_type: { type: String, required: true, index: true },
 		furnishing: {
 			type: String,
-			enum: ["furnished", "semi furnished", "unfurnished", "partially furnished", "n/a", ""],
+			enum: ["furnished", "semi furnished", "unfurnished", "partially furnished", "partly", "partially", "n/a", ""],
 		},
  
 		// Property features
